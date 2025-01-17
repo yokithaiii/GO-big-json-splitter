@@ -20,53 +20,31 @@ func main() {
 		return
 	}
 
-	const maxSize = 1 * 1024 * 1024 // 1.9 MB в байтах
+	chunkSize := 500
+	totalItems := len(items)
 
-	var currentChunk []map[string]interface{}
-	currentSize := 0
-	fileIndex := 1
+	for i := 0; i < totalItems; i += chunkSize {
+		end := i + chunkSize
 
-	for _, item := range items {
-		// Сериализуем отдельный элемент для оценки его размера
-		itemData, err := json.Marshal(item)
+		if end > totalItems {
+			end = totalItems
+		}
+
+		chunk := items[i:end]
+		fileName := fmt.Sprintf("./results/chunked-file-%d.json", i/chunkSize+1)
+		chunkData, err := json.MarshalIndent(chunk, "", "  ")
+
 		if err != nil {
-			fmt.Println("Error marshaling item:", err)
+			fmt.Println("Error marshaling JSON:", err)
 			return
 		}
 
-		// Если добавление элемента приведет к превышению лимита, записываем текущий chunk
-		if currentSize+len(itemData) > int(maxSize) {
-			writeChunkToFile(currentChunk, fileIndex)
-			fileIndex++
-			currentChunk = nil
-			currentSize = 0
+		err = os.WriteFile(fileName, chunkData, 0644)
+		if err != nil {
+			fmt.Println("Error writing file:", err)
+			return
 		}
 
-		// Добавляем элемент в текущий chunk и увеличиваем счетчик текущего размера
-		currentChunk = append(currentChunk, item)
-		currentSize += len(itemData)
+		fmt.Printf("File %s written successfully\n", fileName)
 	}
-
-	// Записываем последний chunk, если остались не записанные элементы
-	if len(currentChunk) > 0 {
-		writeChunkToFile(currentChunk, fileIndex)
-	}
-}
-
-// Функция для записи chunk в файл
-func writeChunkToFile(chunk []map[string]interface{}, fileIndex int) {
-	fileName := fmt.Sprintf("./results/chunked-file-%d.json", fileIndex)
-	chunkData, err := json.MarshalIndent(chunk, "", "  ")
-	if err != nil {
-		fmt.Println("Error marshaling chunk:", err)
-		return
-	}
-
-	err = os.WriteFile(fileName, chunkData, 0644)
-	if err != nil {
-		fmt.Println("Error writing file:", err)
-		return
-	}
-
-	fmt.Printf("File %s written successfully\n", fileName)
 }
